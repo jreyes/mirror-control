@@ -1,0 +1,15 @@
+[Unit]
+Description = Mirror control remote support
+
+[Service]
+Type = simple
+WorkingDirectory={{ APP_INSTALL_PATH }}
+ExecStart=/usr/bin/python control.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+SyslogIdentifier={{ APP_SERVICE_NAME }}
+Environment='DEVICE_ID={{ DEVICE_ID }}'
+Environment='DEVICE_TOKEN={{ DEVICE_TOKEN }}'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,91 @@
+---
+- hosts: all
+  gather_facts: yes
+  sudo: yes
+
+  vars_files:
+    - vars/main.yml
+
+  vars_prompt:
+    - name: DEVICE_ID
+      prompt: "Enter your Artik Device ID"
+      private: no
+    - name: DEVICE_TOKEN
+      prompt: "Enter your Artik Device Token"
+      private: no
+
+  tasks:
+    - name: Update the apt cache
+      apt: update_cache=yes cache_valid_time=7200
+
+    - name: Install/update some basic tools
+      apt: name={{ item }} state=present
+      with_items:
+        - unattended-upgrades
+        - systemd
+        - libpam-systemd
+        - systemd-ui
+        - bluetooth
+        - libbluetooth-dev
+        - libcwiid-dev
+        - libcwiid1
+        - lswm
+        - wmgui
+        - wminput
+        - blueman
+        - python-bluez
+        - python-cwiid
+        - python-pylirc
+
+    - name: Install/update python dependencies
+      pip: name={{ item }} state=present
+      with_items:
+        - requests
+        - pybluez
+
+    - name: Create apt cache
+      file: path=/var/cache/apt/archives state=directory
+
+    - name: Download EventLircd
+      get_url: url={{ item }} dest=/var/cache/apt/archives
+      with_items:
+        - http://ftp.fau.de/osmc/osmc/apt/pool/main/a/armv7-lirc-osmc/armv7-lirc-osmc_0.9.0-5_armhf.deb
+        - http://ftp.fau.de/osmc/osmc/apt/pool/main/a/armv7-eventlircd-osmc/armv7-eventlircd-osmc_1.2.0_armhf.deb
+        - http://ftp.fau.de/osmc/osmc/apt/pool/main/a/armv7-remote-osmc/armv7-remote-osmc_1.2.1_armhf.deb
+
+    - name: Install/update EventLircd
+      action: shell dpkg -i /var/cache/apt/archives/{{ item }}
+      with_items:
+        - armv7-lirc-osmc_0.9.0-5_armhf.deb
+        - armv7-eventlircd-osmc_1.2.0_armhf.deb
+        - armv7-remote-osmc_1.2.1_armhf.deb
+
+    - name: Autoremove any unused packages
+      shell: "apt-get autoremove --assume-yes --purge"
+      register: autoremove_output
+      changed_when: "'The following packages will be REMOVED' in autoremove_output.stdout"
+
+    - name: Autoclean the system
+      shell: "apt-get autoclean --assume-yes"
+
+    - name: Add Mirror Control Service
+      template: src=templates/systemd.service.j2 dest=/etc/systemd/system/mirror-control.service
+      notify: enable mirror control service
+
+    - name: Make sure install path exists
+      file: path={{ APP_INSTALL_PATH }} state=directory
+
+    - name: Copy application
+      copy: src=files/{{ item }} dest={{ APP_INSTALL_PATH }}
+      with_items:
+        - control.py
+        - control_artik.py
+        - control_lirc.py
+        - control_wii.py
+
+    - name: Set permissions
+      file: path={{ INSTALL_PATH }} owner={{ USER }} group={{ USER }} recurse=yes
+
+  handlers:
+    - name: enable mirror control service
+      shell: systemctl daemon-reload && systemctl enable mirror-control && systemctl restart mirror-control

@@ -1,0 +1,9 @@
+---
+# general
+USER: "pi"
+
+INSTALL_PATH: "/home/{{ USER }}/mirror"
+
+# control-app
+APP_SERVICE_NAME: mirror-control
+APP_INSTALL_PATH: "{{ INSTALL_PATH }}/control-app"
